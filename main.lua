@@ -1,47 +1,130 @@
-repeat task.wait() until game:IsLoaded()
+repeat wait() until game:IsLoaded()
 
--- Define globals to avoid nil errors
-getgenv().lilix = getgenv().lilix or false
-getgenv().relix = getgenv().relix or false
+getgenv().lilix = getgenv().lilix or nil
+getgenv().relix = getgenv().relix or nil
 
--- Setup dummy obfuscation functions to prevent "nil" calls
+getgenv().key = getgenv().key or nil
+getgenv().luarmor_api = getgenv().luarmor_api or nil
+getgenv().key_expire = getgenv().key_expire or nil
+getgenv().key_note = getgenv().key_note or nil
+getgenv().key_executions = getgenv().key_executions or nil
+
 if not LPH_OBFUSCATED then
-    getgenv().LPH_JIT_MAX = function(...) return ... end
-    getgenv().LPH_NO_VIRTUALIZE = function(f) return f end
-    getgenv().LPH_NO_UPVALUES = function(...) return ... end
-    getgenv().LPH_CRASH = function(...) return ... end
+	LPH_JIT_MAX = function(...) return ... end
+	LPH_NO_VIRTUALIZE = function(f) return f end
+	LPH_NO_UPVALUES = function(...) return ... end
+	LPH_CRASH = function(...) return ... end
+else
+	print = function() end
+	warn = function() end
 end
 
 local cloneref = cloneref or function(o) return o end
-local Players = cloneref(game:GetService("Players"))
+local CoreGui = cloneref(game:GetService("CoreGui"))
+local TweenService = cloneref(game:GetService("TweenService"))
 local UserInputService = cloneref(game:GetService("UserInputService"))
-local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-
--- Safety check for folder creation (Some executors have different naming)
-local makefolder = makefolder or function() end
-local isfolder = isfolder or function() return false end
+local Players = cloneref(game:GetService("Players"))
+local TextService = cloneref(game:GetService("TextService"))
+local HttpService = cloneref(game:GetService("HttpService"))
+local Lighting = cloneref(game:GetService("Lighting"))
+local Workspace = cloneref(game:GetService("Workspace"))
+local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
 
 local Folder_Configs = {
-    Directory = "solixhub",
-    Configs = "solixhub/Configs",
-    Assets = "solixhub/Assets",
-    Themes = "solixhub/Themes"
+	Directory = "solixhub",
+	Configs = "solixhub/Configs",
+	Assets = "solixhub/Assets",
+	Themes = "solixhub/Themes"
 }
 
--- Create folders only if the functions exist
-pcall(function()
-    for _, Folder in pairs(Folder_Configs) do
-        if not isfolder(Folder) then
-            makefolder(Folder)
-        end
-    end
-end)
+for _, Folder in pairs(Folder_Configs) do
+	if not isfolder(Folder) then
+		makefolder(Folder)
+	end
+end
 
--- Set environment flags
-getgenv().lilix = (hookfunction and hookmetamethod) and true or false
-getgenv().relix = IsMobile
+local GameId = tostring(game.GameId)
+local GameConfigFolder = Folder_Configs.Configs .. "/" .. GameId
 
-print("Solix Hub: Script initialized successfully.")
+if not isfolder(GameConfigFolder) then
+	makefolder(GameConfigFolder)
+end
+
+local GameList = {
+	["3808223175"] = { id = "4fe2dfc202115670b1813277df916ab2", keyless = false }, -- Jujutsu Infinite
+	["994732206"]  = { id = "e2718ddebf562c5c4080dfce26b09398", keyless = false }, -- Blox Fruits
+	["1511883870"] = { id = "fefdf5088c44beb34ef52ed6b520507c", keyless = false }, -- Shindo Life
+	["6035872082"] = { id = "3bb7969a9ecb9e317b0a24681327c2e2", keyless = true }, -- Rivals
+	["245662005"]  = { id = "21ad7f491e4658e9dc9529a60c887c6e", keyless = true }, -- Jailbreak
+	["7018190066"] = { id = "98f5c64a0a9ecca29517078597bbcbdb", keyless = true }, -- Dead Rails
+	["7326934954"] = { id = "00e140acb477c5ecde501c1d448df6f9", keyless = true }, -- 99 Nights in the Forest
+	["7671049560"] = { id = "c0b41e859f576fb70183206224d4a75f", keyless = false }, -- The Forge
+	["9363735110"] = { id = "4948419832e0bd4aa588e628c45b6f8d", keyless = false }, -- Escape Tsunami For Brainrots!
+	["5130394318"] = { id = "3e7a75a970118d0f0cf629369524dc7d", keyless = true }, -- Bizarre Lineage
+	["9186719164"] = { id = "892ccfefdc8834199a2a6e5856a8da67", keyless = true }, -- Sailor Piece
+	["9787206684"] = { id = "a29d0ba0c834bf7d9ccd4b615fce834f", keyless = false }, -- Be a Lucky Block
+	["9875383684"] = { id = "e29724bc620c1a6d1a45818c4f71b1d0", keyless = false } -- Be a Brainrot
+}
+
+local Config = {
+	File = "solixhub/savedkey.txt",
+	Title = "Solix Hub Free 15+ Games",
+	Description = "Lifetime key access is available for a one time payment of $15 via solixhub.com",
+	Linkvertise = "https://ads.luarmor.net/get_key?for=Solix_Hub_Linkvertise-OWlLHDMCHADk",
+	Rinku = "https://ads.luarmor.net/get_key?for=Solix_Hub_Rinku-pqJCGTqnTsng",
+	Discord = "https://discord.gg/solixhub",
+	Shop = "https://solixhub.com/",
+}
+
+local ErrorMessages = {
+	KEY_EXPIRED = "Your key has expired. Please renew it to continue.",
+	KEY_BANNED = "This key has been blacklisted. Contact support for assistance.",
+	KEY_INCORRECT = "The provided key is incorrect or no longer valid.",
+	KEY_INVALID = "Invalid key format. Please check your key and try again.",
+	SCRIPT_ID_INCORRECT = "The provided script ID does not exist or has been removed.",
+	SCRIPT_ID_INVALID = "This script has been deleted by its owner.",
+	SECURITY_ERROR = "Security validation failed (Cloudflare check). Please retry.",
+	TIME_ERROR = "Invalid client time detected. Please sync your system clock.",
+	UNKNOWN_ERROR = "An unknown error occurred. Please contact support."
+}
+
+local GameConfig = GameList[GameId]
+
+if not GameConfig then
+	Players.LocalPlayer:Kick("This game is not supported.")
+	return
+end
+
+local ScriptId = GameConfig.id
+local IsKeyless = GameConfig.keyless
+
+if hookfunction and hookmetamethod then
+	getgenv().lilix = true
+else
+	getgenv().lilix = false
+end
+
+if IsMobile then
+	getgenv().relix = true
+else
+	getgenv().relix = false
+end
+
+local function DeleteFile(v)
+	if isfile(v) then
+		delfile(v)
+	end
+end
+
+local LuarmorApi = loadstring(game:HttpGet("https://sdkapi-public.luarmor.net/library.lua"))()
+LuarmorApi.script_id = ScriptId
+
+if IsKeyless then
+	pcall(function()
+		LuarmorApi.load_script()
+	end)
+	return
+end
 
 local Library do
 	local wait = task.wait
